@@ -1,0 +1,95 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>street-giving lambda analysis</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="../outputs/analysis/web/data.js"></script>
+  <style>
+    body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: #111; color: #eee; }
+    #map { height: 100vh; }
+    .panel { position: absolute; z-index: 1000; top: 16px; left: 16px; width: 280px; padding: 14px; border-radius: 12px; background: rgba(20,20,24,.92); box-shadow: 0 8px 24px #0008; }
+    .panel h1 { margin: 0 0 10px; font-size: 17px; }
+    .panel label { display: block; margin-top: 10px; font-size: 12px; color: #bbb; }
+    .panel select, .panel input { width: 100%; margin-top: 4px; }
+    .legend { position: absolute; z-index: 1000; right: 16px; bottom: 18px; padding: 10px 12px; border-radius: 10px; background: rgba(20,20,24,.92); font-size: 12px; }
+    .swatch { display: inline-block; width: 12px; height: 12px; margin-right: 6px; vertical-align: -1px; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div class="panel">
+    <h1>street-giving lambda</h1>
+    <label>day type</label>
+    <select id="day"><option>weekday</option><option>weekend</option></select>
+    <label>view</label>
+    <select id="view">
+      <option value="daily_lambda">daily weighted lambda</option>
+      <option value="morning">morning</option>
+      <option value="midday">midday</option>
+      <option value="evening">evening</option>
+      <option value="late_night">late night</option>
+      <option value="hour">hourly</option>
+      <option value="competition_pressure">competition pressure</option>
+    </select>
+    <label>hour: <span id="hlabel">12</span></label>
+    <input id="hour" type="range" min="0" max="23" value="12" />
+  </div>
+  <div class="legend">
+    <span class="swatch" style="background:#2b83ba"></span>low
+    <span class="swatch" style="background:#ffffbf;margin-left:10px"></span>mid
+    <span class="swatch" style="background:#d7191c;margin-left:10px"></span>high
+  </div>
+  <script>
+    const map = L.map("map").setView([51.51, -0.10], 11);
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+      attribution: "&copy; OpenStreetMap &copy; CARTO"
+    }).addTo(map);
+
+    let layer;
+    function field() {
+      const day = document.getElementById("day").value;
+      const view = document.getElementById("view").value;
+      const hour = document.getElementById("hour").value;
+      if (view === "daily_lambda" || view === "competition_pressure") return view;
+      if (view === "hour") return `${day}_h${hour}`;
+      return `${day}_${view}`;
+    }
+    function values(f) {
+      return LAMBDA_DATA.features.map(x => +x.properties[f] || 0).filter(Number.isFinite);
+    }
+    function color(v, lo, hi) {
+      const x = Math.max(0, Math.min(1, (v - lo) / (hi - lo || 1)));
+      if (x < 0.5) {
+        const t = x * 2;
+        return `rgb(${43 + t * (255 - 43)},${131 + t * (255 - 131)},${186 + t * (191 - 186)})`;
+      }
+      const t = (x - 0.5) * 2;
+      return `rgb(${255 + t * (215 - 255)},${255 + t * (25 - 255)},${191 + t * (28 - 191)})`;
+    }
+    function draw() {
+      const f = field();
+      const vs = values(f).sort((a, b) => a - b);
+      const lo = vs[Math.floor(vs.length * 0.05)] || 0;
+      const hi = vs[Math.floor(vs.length * 0.95)] || 1;
+      document.getElementById("hlabel").textContent = document.getElementById("hour").value;
+      if (layer) layer.remove();
+      layer = L.geoJSON(LAMBDA_DATA, {
+        style: x => ({
+          color: "#222",
+          weight: 0.25,
+          fillOpacity: 0.78,
+          fillColor: color(+x.properties[f] || 0, lo, hi)
+        }),
+        onEachFeature: (x, l) => l.bindTooltip(
+          `<b>${x.properties.msoa_name}</b><br>${x.properties.borough}<br>${f}: ${Math.round(+x.properties[f] || 0)}<br>competition: ${(+x.properties.competition_pressure || 0).toFixed(2)}<br>dominant crowd: ${x.properties.dominant_crowd}`
+        )
+      }).addTo(map);
+    }
+    ["day", "view", "hour"].forEach(id => document.getElementById(id).addEventListener("input", draw));
+    draw();
+  </script>
+</body>
+</html>

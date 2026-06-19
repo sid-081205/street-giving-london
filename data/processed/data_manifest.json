@@ -1,0 +1,16 @@
+{
+  "granularity": "LSOA",
+  "areas": 2130,
+  "osm_pois": 18418,
+  "files": [
+    "areas_lsoa.gpkg",
+    "ashe_section_pay.csv",
+    "bres_section_lsoa.csv",
+    "data_manifest.json",
+    "osm_pois.geojson",
+    "rods_profiles.csv",
+    "rough_sleeping_borough.csv",
+    "station_coords.csv",
+    "station_footfall.csv"
+  ]
+}
